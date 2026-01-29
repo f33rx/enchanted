@@ -36,17 +36,18 @@ jobs:
 
       - name: Build macOS App
         run: |
-          # Build the app with a known derived data path
+          # Build the app with a known derived data path (arm64 only for GitHub runners)
           xcodebuild build \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS,arch=arm64' \
             -configuration Release \
             -derivedDataPath "${{ runner.temp }}/DerivedData" \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM=""
+            DEVELOPMENT_TEAM="" \
+            ONLY_ACTIVE_ARCH=YES
 
       - name: Prepare App for Distribution
         run: |
