@@ -81,7 +81,7 @@ final class CompletionsPanelVM {
                     generation = OpenAIService.shared.chat(
                         model: model.name,
                         messages: openAIMessages,
-                        temperature: completion.modelTemperature ?? 0.8
+                        temperature: completion.modelTemperature.map { Double($0) } ?? 0.8
                     )
                     .sink(receiveCompletion: { [weak self] completion in
                         switch completion {
