@@ -36,84 +36,47 @@ jobs:
 
       - name: Build macOS App
         run: |
+          # Build the app with a known derived data path
           xcodebuild build \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
             -destination 'platform=macOS' \
             -configuration Release \
+            -derivedDataPath "${{ runner.temp }}/DerivedData" \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            | xcpretty || true
+            DEVELOPMENT_TEAM=""
 
-      - name: Archive macOS App
+      - name: Prepare App for Distribution
         run: |
-          xcodebuild archive \
-            -project "$PROJECT" \
-            -scheme "$SCHEME" \
-            -destination 'generic/platform=macOS' \
-            -configuration Release \
-            -archivePath ${{ runner.temp }}/Enchanted.xcarchive \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            | xcpretty || true
+          # Find and copy the built app
+          mkdir -p "${{ runner.temp }}/Export"
 
-      - name: Export App
-        run: |
-          # Create ExportOptions.plist for unsigned export
-          cat > ${{ runner.temp }}/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>mac-application</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>teamID</key>
-              <string></string>
-              <key>destination</key>
-              <string>export</string>
-          </dict>
-          </plist>
-          EOF
+          APP_PATH=$(find "${{ runner.temp }}/DerivedData/Build/Products/Release" -name "*.app" -type d | head -1)
 
-          # Export the archive - try direct copy if exportArchive fails (common for unsigned)
-          xcodebuild -exportArchive \
-            -archivePath ${{ runner.temp }}/Enchanted.xcarchive \
-            -exportOptionsPlist ${{ runner.temp }}/ExportOptions.plist \
-            -exportPath ${{ runner.temp }}/Export \
-            -allowProvisioningUpdates || \
-          cp -R "${{ runner.temp }}/Enchanted.xcarchive/Products/Applications/Enchanted.app" "${{ runner.temp }}/Export/" || \
-          mkdir -p "${{ runner.temp }}/Export" && cp -R "${{ runner.temp }}/Enchanted.xcarchive/Products/Applications/"*.app "${{ runner.temp }}/Export/"
+          if [ -n "$APP_PATH" ]; then
+            echo "Found app at: $APP_PATH"
+            cp -R "$APP_PATH" "${{ runner.temp }}/Export/"
+          else
+            echo "Error: No .app found in build products"
+            find "${{ runner.temp }}/DerivedData" -name "*.app" -type d
+            exit 1
+          fi
 
       - name: Create DMG
         run: |
-          # Install create-dmg if not available
+          # Install create-dmg
           brew install create-dmg || true
 
-          # Find the app
-          APP_PATH=$(find ${{ runner.temp }}/Export -name "*.app" -type d | head -1)
+          APP_PATH="${{ runner.temp }}/Export/Enchanted.app"
 
-          if [ -z "$APP_PATH" ]; then
-            # Fallback: copy from archive
-            mkdir -p ${{ runner.temp }}/Export
-            cp -R "${{ runner.temp }}/Enchanted.xcarchive/Products/Applications/"*.app "${{ runner.temp }}/Export/" || true
-            APP_PATH=$(find ${{ runner.temp }}/Export -name "*.app" -type d | head -1)
-          fi
-
-          if [ -n "$APP_PATH" ]; then
+          if [ -d "$APP_PATH" ]; then
             echo "Creating DMG from: $APP_PATH"
 
-            # Create DMG
+            # Try create-dmg first, fall back to hdiutil
             create-dmg \
               --volname "Enchanted" \
-              --volicon "$APP_PATH/Contents/Resources/AppIcon.icns" \
               --window-pos 200 120 \
               --window-size 600 400 \
               --icon-size 100 \
@@ -124,7 +87,8 @@ jobs:
               "$APP_PATH" || \
             hdiutil create -volname "Enchanted" -srcfolder "$APP_PATH" -ov -format UDZO "${{ runner.temp }}/Enchanted.dmg"
           else
-            echo "No .app found, skipping DMG creation"
+            echo "No .app found at $APP_PATH"
+            ls -la "${{ runner.temp }}/Export/" || true
             exit 1
           fi
 
@@ -132,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Enchanted-macOS-App
-          path: ${{ runner.temp }}/Export/*.app
+          path: ${{ runner.temp }}/Export/Enchanted.app
           if-no-files-found: warn
 
       - name: Upload DMG Artifact
@@ -141,14 +105,6 @@ jobs:
           name: Enchanted-macOS-DMG
           path: ${{ runner.temp }}/Enchanted.dmg
           if-no-files-found: warn
-
-      - name: Upload Archive (for debugging)
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: Enchanted-xcarchive
-          path: ${{ runner.temp }}/Enchanted.xcarchive
-          if-no-files-found: ignore
 
   # Optional: Create a release when a tag is pushed
   release:
