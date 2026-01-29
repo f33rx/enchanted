@@ -29,8 +29,7 @@ struct ChatView: View {
     @State private var editMessage: MessageSD?
     @FocusState private var isFocusedInput: Bool
     @StateObject var speechRecognizer = SpeechRecognizer()
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    
+
     /// Image selection
     @State private var pickerSelectorActive: PhotosPickerItem?
     @State private var selectedImage: Image?
