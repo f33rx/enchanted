@@ -21,13 +21,14 @@ struct ChatView: View {
     var reachable: Bool
     var onSelectModel: @MainActor (_ model: LanguageModelSD?) -> ()
     var userInitials: String
-    
+
     private var selectedModel: LanguageModelSD?
     @State private var message = ""
     @State private var isRecording = false
     @State private var editMessage: MessageSD?
     @FocusState private var isFocusedInput: Bool
     @StateObject var speechRecognizer = SpeechRecognizer()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     
     /// Image selection
     @State private var pickerSelectorActive: PhotosPickerItem?
@@ -86,33 +87,37 @@ struct ChatView: View {
     
     var header: some View {
         HStack(alignment: .center) {
-            Button(action: onMenuTap) {
-                Image(systemName: "line.3.horizontal")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 22)
-                    .foregroundColor(Color(.label))
+            if horizontalSizeClass == .compact {
+                Button(action: onMenuTap) {
+                    Image(systemName: "line.3.horizontal")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22)
+                        .foregroundColor(Color(.label))
+                }
             }
-            
+
             Spacer()
-            
+
             ModelSelectorView(
                 modelsList: modelsList,
                 selectedModel: selectedModel,
                 onSelectModel: onSelectModel
             )
             .showIf(!modelsList.isEmpty)
-            
+
             Spacer()
-            
-            Button(action: onNewConversationTap) {
-                Image(systemName: "square.and.pencil")
-                    .renderingMode(.template)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 22)
-                    .foregroundColor(Color(.label))
+
+            if horizontalSizeClass == .compact {
+                Button(action: onNewConversationTap) {
+                    Image(systemName: "square.and.pencil")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22)
+                        .foregroundColor(Color(.label))
+                }
             }
         }
     }
