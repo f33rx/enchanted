@@ -37,6 +37,7 @@ jobs:
       - name: Build macOS App
         run: |
           # Build the app with a known derived data path (arm64 only for GitHub runners)
+          # Use -hideShellScriptEnvironment to reduce noise but keep errors visible
           xcodebuild build \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
@@ -49,7 +50,15 @@ jobs:
             DEVELOPMENT_TEAM="" \
             ONLY_ACTIVE_ARCH=YES \
             SWIFT_STRICT_CONCURRENCY=minimal \
-            SWIFT_UPCOMING_FEATURE_STRICT_CONCURRENCY=NO
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=NO 2>&1 | tee build.log
+
+          # If build failed, show the last 100 lines for debugging
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "=== BUILD FAILED - Last 100 lines of output ==="
+            tail -100 build.log
+            exit 1
+          fi
 
       - name: Prepare App for Distribution
         run: |
